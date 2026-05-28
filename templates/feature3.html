@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 檔案管理員 - {{ bucket_name }}</title>
+    <!-- Modern typography from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary-accent: #6366f1;
+            --primary-accent-hover: #4f46e5;
+            --secondary-accent: #14b8a6;
+            --secondary-accent-hover: #0d9488;
+            --danger-accent: #ef4444;
+            --danger-accent-hover: #dc2626;
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 3rem 1.5rem;
+            overflow-y: auto;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 850px;
+        }
+
+        /* Header Navigation */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-back {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+
+        .btn-back:hover {
+            color: var(--text-primary);
+        }
+
+        /* Glassmorphism Card */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 2.5rem 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #818cf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        /* Alerts & Messages */
+        .alert {
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(20, 184, 166, 0.15);
+            border: 1px solid rgba(20, 184, 166, 0.3);
+            color: #99f6e4;
+        }
+
+        .aws-guide {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px dashed rgba(239, 68, 68, 0.2);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .aws-guide code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #fca5a5;
+        }
+
+        /* Upload Area */
+        .upload-section {
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .upload-section:hover {
+            border-color: var(--primary-accent);
+            background: rgba(99, 102, 241, 0.02);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .file-input-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .file-input-btn:hover {
+            border-color: var(--primary-accent);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .selected-file-name {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            min-height: 1.2rem;
+            word-break: break-all;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.65rem 1.25rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-submit:disabled {
+            background: #334155;
+            color: #64748b;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-action {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            border-radius: 6px;
+        }
+
+        .btn-download {
+            background: rgba(20, 184, 166, 0.1);
+            color: var(--secondary-accent);
+            border: 1px solid rgba(20, 184, 166, 0.2);
+        }
+
+        .btn-download:hover {
+            background: var(--secondary-accent);
+            color: white;
+        }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-accent);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-delete:hover {
+            background: var(--danger-accent);
+            color: white;
+        }
+
+        /* Files Table */
+        .files-table-container {
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid var(--card-border);
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .file-name-cell {
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- Header -->
+        <header class="nav-header">
+            <a href="/" class="btn-back">
+                ← 返回首頁
+            </a>
+            <div style="font-size: 0.85rem; color: var(--text-secondary)">
+                Bucket: <strong style="color: var(--secondary-accent)">{{ bucket_name }}</strong>
+            </div>
+        </header>
+
+        <!-- Main Card -->
+        <main class="card">
+            <h1>S3 檔案管理員</h1>
+            <p class="subtitle">安全地瀏覽、上傳及下載 S3 儲存桶中的檔案</p>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{% if category == 'error' %}error{% else %}success{% endif %}">
+                            <span>{% if category == 'error' %}⚠️{% else %}✨{% endif %} {{ message }}</span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Error Alerts (AWS Connection Issues) -->
+            {% if error_msg %}
+                <div class="alert alert-error">
+                    <div style="width: 100%;">
+                        <div><strong>⚠️ S3 連線異常：</strong> {{ error_msg }}</div>
+                        {% if credential_error %}
+                            <div class="aws-guide">
+                                💡 <strong>安全開發指引：</strong> 本專案不包含硬編碼金鑰。
+                                <br>• <strong>本機測試</strong>：請在本機安裝 AWS CLI 並執行 <code>aws configure</code>，或設定環境變數 <code>AWS_ACCESS_KEY_ID</code> 與 <code>AWS_SECRET_ACCESS_KEY</code>。
+                                <br>• <strong>EC2 部署</strong>：請將此 EC2 執行個體關聯至擁有 <code>ckc-26</code> 權限的 <strong>IAM 角色 (IAM Role)</strong>。
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <form action="/feature3/upload" method="POST" enctype="multipart/form-data" id="upload-form">
+                    <div class="file-input-wrapper">
+                        <button type="button" class="file-input-btn">
+                            📁 選擇檔案...
+                        </button>
+                        <input type="file" name="file" id="file-input" onchange="updateSelectedFileName()" {% if credential_error %}disabled{% endif %}>
+                    </div>
+                    <span class="selected-file-name" id="file-name-display">尚未選取任何檔案</span>
+                    <button type="submit" class="btn btn-submit" id="btn-upload" {% if credential_error %}disabled{% endif %}>
+                        ☁️ 開始上傳到 S3
+                    </button>
+                </form>
+            </section>
+
+            <!-- Files List Section -->
+            <section>
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    🗂️ 儲存桶檔案列表
+                </h3>
+                
+                <div class="files-table-container">
+                    {% if files %}
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>檔案名稱</th>
+                                    <th>檔案大小</th>
+                                    <th>最後修改時間</th>
+                                    <th style="width: 160px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                    <tr>
+                                        <td class="file-name-cell">{{ file.key }}</td>
+                                        <td id="size-{{ loop.index }}">{{ file.size }}</td>
+                                        <td style="color: var(--text-secondary); font-size: 0.85rem;">{{ file.last_modified }}</td>
+                                        <td class="actions-cell">
+                                            <a href="/feature3/download/{{ file.key }}" class="btn btn-action btn-download">
+                                                下載
+                                            </a>
+                                            <form action="/feature3/delete/{{ file.key }}" method="POST" onsubmit="return confirm('確定要刪除此檔案嗎？此動作無法復原。');" style="display: inline;">
+                                                <button type="submit" class="btn btn-action btn-delete">
+                                                    刪除
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="empty-state">
+                            <span class="empty-state-icon">📥</span>
+                            <p>儲存桶中目前沒有任何檔案，或您尚未連接到 AWS。</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // Update selection UI text when file is selected
+        function updateSelectedFileName() {
+            const input = document.getElementById('file-input');
+            const display = document.getElementById('file-name-display');
+            if (input.files && input.files.length > 0) {
+                display.innerText = `已選取：${input.files[0].name} (${formatBytes(input.files[0].size)})`;
+            } else {
+                display.innerText = '尚未選取任何檔案';
+            }
+        }
+
+        // Format byte sizes to readable strings (KB, MB, etc)
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // Format all backend byte sizes displayed in the table on load
+        window.addEventListener('DOMContentLoaded', () => {
+            {% if files %}
+                {% for file in files %}
+                    const sizeEl = document.getElementById('size-{{ loop.index }}');
+                    if (sizeEl) {
+                        const bytes = parseInt(sizeEl.innerText, 10);
+                        sizeEl.innerText = formatBytes(bytes);
+                    }
+                {% endfor %}
+            {% endif %}
+        });
+    </script>
+</body>
+</html>
