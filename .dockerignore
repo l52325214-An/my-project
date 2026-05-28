@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Flask / environment
+.env
+.flaskenv
+.venv
+venv/
+ENV/
+env/
+
+# Testing and caching
+.pytest_cache/
+.pytest/
+.cache/
+.coverage
+htmlcov/
+
+# Git and GitHub
+.git
+.github
+
+# Docker files
+Dockerfile
+.dockerignore
