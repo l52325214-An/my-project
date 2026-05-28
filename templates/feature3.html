@@ -373,10 +373,10 @@
                         <button type="button" class="file-input-btn">
                             📁 選擇檔案...
                         </button>
-                        <input type="file" name="file" id="file-input" onchange="updateSelectedFileName()" {% if credential_error %}disabled{% endif %}>
+                        <input type="file" name="file" id="file-input" onchange="updateSelectedFileName()">
                     </div>
                     <span class="selected-file-name" id="file-name-display">尚未選取任何檔案</span>
-                    <button type="submit" class="btn btn-submit" id="btn-upload" {% if credential_error %}disabled{% endif %}>
+                    <button type="submit" class="btn btn-submit" id="btn-upload">
                         ☁️ 開始上傳到 S3
                     </button>
                 </form>
