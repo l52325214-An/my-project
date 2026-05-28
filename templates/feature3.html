@@ -180,13 +180,7 @@
         }
 
         .file-input-wrapper input[type="file"] {
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
+            display: none;
         }
 
         .selected-file-name {
@@ -370,9 +364,9 @@
             <section class="upload-section">
                 <form action="/feature3/upload" method="POST" enctype="multipart/form-data" id="upload-form">
                     <div class="file-input-wrapper">
-                        <button type="button" class="file-input-btn">
+                        <label for="file-input" class="file-input-btn">
                             📁 選擇檔案...
-                        </button>
+                        </label>
                         <input type="file" name="file" id="file-input" onchange="updateSelectedFileName()">
                     </div>
                     <span class="selected-file-name" id="file-name-display">尚未選取任何檔案</span>
