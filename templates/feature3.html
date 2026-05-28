@@ -323,8 +323,13 @@
             <a href="/" class="btn-back">
                 ← 返回首頁
             </a>
-            <div style="font-size: 0.85rem; color: var(--text-secondary)">
-                Bucket: <strong style="color: var(--secondary-accent)">{{ bucket_name }}</strong>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.75rem;">
+                <span>Bucket: <strong style="color: var(--secondary-accent)">{{ bucket_name }}</strong></span>
+                {% if s3_available %}
+                    <span style="background: rgba(20, 184, 166, 0.15); color: #99f6e4; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(20, 184, 166, 0.3); font-weight: 600;">☁️ AWS S3 模式</span>
+                {% else %}
+                    <span style="background: rgba(249, 115, 22, 0.15); color: #fdba74; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(249, 115, 22, 0.3); font-weight: 600;">💻 Local 本機快取模式</span>
+                {% endif %}
             </div>
         </header>
 
@@ -349,7 +354,7 @@
                 <div class="alert alert-error">
                     <div style="width: 100%;">
                         <div><strong>⚠️ S3 連線異常：</strong> {{ error_msg }}</div>
-                        {% if credential_error %}
+                        {% if not s3_available %}
                             <div class="aws-guide">
                                 💡 <strong>安全開發指引：</strong> 本專案不包含硬編碼金鑰。
                                 <br>• <strong>本機測試</strong>：請在本機安裝 AWS CLI 並執行 <code>aws configure</code>，或設定環境變數 <code>AWS_ACCESS_KEY_ID</code> 與 <code>AWS_SECRET_ACCESS_KEY</code>。
@@ -388,6 +393,7 @@
                             <thead>
                                 <tr>
                                     <th>檔案名稱</th>
+                                    <th>儲存來源</th>
                                     <th>檔案大小</th>
                                     <th>最後修改時間</th>
                                     <th style="width: 160px;">操作</th>
@@ -397,6 +403,13 @@
                                 {% for file in files %}
                                     <tr>
                                         <td class="file-name-cell">{{ file.key }}</td>
+                                        <td>
+                                            {% if file.source == 'S3' %}
+                                                <span style="color: #99f6e4; font-size: 0.825rem; background: rgba(20, 184, 166, 0.1); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(20, 184, 166, 0.2);">AWS S3</span>
+                                            {% else %}
+                                                <span style="color: #fdba74; font-size: 0.825rem; background: rgba(249, 115, 22, 0.1); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(249, 115, 22, 0.2);">本機快取</span>
+                                            {% endif %}
+                                        </td>
                                         <td id="size-{{ loop.index }}">{{ file.size }}</td>
                                         <td style="color: var(--text-secondary); font-size: 0.85rem;">{{ file.last_modified }}</td>
                                         <td class="actions-cell">

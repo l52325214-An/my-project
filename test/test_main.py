@@ -121,3 +121,36 @@ def test_feature3_delete(mock_get_s3, client):
     
     mock_s3.delete_object.assert_called_once_with(Bucket="ckc-26", Key="test_delete.txt")
 
+
+@patch("main.get_s3_client")
+def test_feature3_local_fallback_upload_and_list(mock_get_s3, client, tmp_path):
+    """Test that when AWS credentials are missing, files are uploaded locally and listed successfully."""
+    mock_s3 = MagicMock()
+    mock_get_s3.return_value = mock_s3
+    mock_s3.upload_fileobj.side_effect = NoCredentialsError()
+    mock_s3.list_objects_v2.side_effect = NoCredentialsError()
+    
+    import main
+    original_upload_folder = main.UPLOAD_FOLDER
+    main.UPLOAD_FOLDER = str(tmp_path)
+    
+    try:
+        data = {
+            'file': (io.BytesIO(b"local fallback file contents"), 'local_test.txt')
+        }
+        upload_response = client.post("/feature3/upload", data=data, content_type='multipart/form-data')
+        assert upload_response.status_code == 302
+        
+        local_file_path = tmp_path / 'local_test.txt'
+        assert local_file_path.exists()
+        assert local_file_path.read_bytes() == b"local fallback file contents"
+        
+        list_response = client.get("/feature3")
+        assert list_response.status_code == 200
+        assert b"local_test.txt" in list_response.data
+        assert "本機快取".encode("utf-8") in list_response.data
+        
+    finally:
+        main.UPLOAD_FOLDER = original_upload_folder
+
+
