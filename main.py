@@ -106,20 +106,24 @@ def feature3_upload():
     filename = secure_filename(file.filename)
     
     try:
-        s3 = get_s3_client()
-        s3.upload_fileobj(file, BUCKET_NAME, filename)
-        flash(f"檔案 {filename} 成功上傳至 AWS S3！", "success")
-    except (NoCredentialsError, ClientError):
-        # Fallback to local storage
+        # Read the file content into memory first to avoid boto3 closing the stream on failure
+        file_content = file.read()
+        
         try:
-            file.seek(0)  # Reset stream position
-            local_path = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(local_path)
-            flash(f"已成功將檔案 {filename} 上傳至本機快取目錄 (本機模式已啟用)", "success")
-        except Exception as le:
-            flash(f"上傳至本機失敗: {str(le)}", "error")
+            s3 = get_s3_client()
+            s3.upload_fileobj(io.BytesIO(file_content), BUCKET_NAME, filename)
+            flash(f"檔案 {filename} 成功上傳至 AWS S3！", "success")
+        except (NoCredentialsError, ClientError):
+            # Fallback to local storage
+            try:
+                local_path = os.path.join(UPLOAD_FOLDER, filename)
+                with open(local_path, "wb") as f:
+                    f.write(file_content)
+                flash(f"已成功將檔案 {filename} 上傳至本機快取目錄 (本機模式已啟用)", "success")
+            except Exception as le:
+                flash(f"上傳至本機失敗: {str(le)}", "error")
     except Exception as e:
-        flash(f"上傳至 S3 失敗: {str(e)}", "error")
+        flash(f"上傳失敗: {str(e)}", "error")
         
     return redirect(url_for('feature3'))
 
