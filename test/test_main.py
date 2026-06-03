@@ -154,3 +154,41 @@ def test_feature3_local_fallback_upload_and_list(mock_get_s3, client, tmp_path):
         main.UPLOAD_FOLDER = original_upload_folder
 
 
+@patch("main.cpu_stresser")
+def test_feature4_endpoints(mock_stresser, client):
+    """Test Feature 4 page, start, stop, and status endpoints."""
+    # 1. Test GET /feature4 page
+    response = client.get("/feature4")
+    assert response.status_code == 200
+    assert "AWS CloudWatch CPU 壓力測試".encode("utf-8") in response.data
+
+    # 2. Test GET /feature4/status
+    mock_stresser.get_status.return_value = {
+        "active": False,
+        "remaining_seconds": 0,
+        "duration": 0,
+        "cores_stressed": 0,
+        "total_system_cores": 4
+    }
+    response = client.get("/feature4/status")
+    assert response.status_code == 200
+    status_data = response.get_json()
+    assert status_data["active"] is False
+    assert status_data["total_system_cores"] == 4
+
+    # 3. Test POST /feature4/start (Success case)
+    response = client.post("/feature4/start", json={"duration": 30, "cores": 1})
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "success"
+    mock_stresser.start.assert_called_once_with(30, 1)
+
+    # 4. Test POST /feature4/start (Failure: Invalid Duration)
+    response = client.post("/feature4/start", json={"duration": 500, "cores": 1})
+    assert response.status_code == 400
+    assert "Duration must be between" in response.get_json()["message"]
+
+    # 5. Test POST /feature4/stop
+    response = client.post("/feature4/stop")
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "success"
+    mock_stresser.stop.assert_called_once()

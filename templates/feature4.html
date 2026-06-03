@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS CloudWatch CPU 壓力測試控制台</title>
+    <!-- Modern typography from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #111827 100%);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --accent-fire: #f43f5e;
+            --accent-fire-hover: #e11d48;
+            --accent-cool: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 750px;
+        }
+
+        /* Glassmorphism Card */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            padding: 2.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to right, var(--accent-cool), var(--accent-fire));
+            opacity: 0.8;
+        }
+
+        /* Header block */
+        .header-block {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: color 0.2s ease;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #f43f5e, #fb7185);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-top: 0.25rem;
+            font-weight: 300;
+        }
+
+        /* Layout Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 640px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Panel Settings */
+        .settings-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .info-badge {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 14px;
+            padding: 1rem;
+            font-size: 0.95rem;
+            color: #93c5fd;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .info-value {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .label-val {
+            color: var(--text-primary);
+            font-weight: 800;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 0.75rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--accent-cool);
+        }
+
+        /* Custom range styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            padding: 0.5rem 0;
+            background: transparent;
+            border: none;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: var(--accent-cool);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            transition: background 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #60a5fa;
+        }
+
+        /* Status Visualizer */
+        .visualizer-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            padding: 2rem;
+            min-height: 250px;
+            position: relative;
+        }
+
+        /* Pulsating Circle Gauge */
+        .gauge-outer {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: rgba(255, 255, 255, 0.02);
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            transition: all 0.5s ease;
+        }
+
+        .gauge-inner {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: 800;
+            font-size: 1.5rem;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.05) 100%);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        .gauge-unit {
+            font-size: 0.8rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-top: 0.15rem;
+        }
+
+        /* Active Stressing Animation classes */
+        .stressing .gauge-outer {
+            border-color: rgba(244, 63, 94, 0.4);
+            animation: rotate-dash 10s linear infinite;
+        }
+
+        .stressing .gauge-inner {
+            background: radial-gradient(circle, rgba(244, 63, 94, 0.4) 0%, rgba(244, 63, 94, 0.05) 100%);
+            border-color: rgba(244, 63, 94, 0.6);
+            box-shadow: 0 0 35px rgba(244, 63, 94, 0.3);
+            color: #fda4af;
+            animation: pulse-glow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes rotate-dash {
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                box-shadow: 0 0 20px rgba(244, 63, 94, 0.2), inset 0 0 10px rgba(244, 63, 94, 0.1);
+            }
+            100% {
+                box-shadow: 0 0 45px rgba(244, 63, 94, 0.5), inset 0 0 20px rgba(244, 63, 94, 0.3);
+            }
+        }
+
+        .status-text {
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: center;
+            transition: color 0.3s;
+        }
+
+        .stressing .status-text {
+            color: var(--accent-fire);
+        }
+
+        /* Alert notifications */
+        .alert-box {
+            border-radius: 12px;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #a7f3d0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Control Buttons */
+        .btn-group-action {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 0.9rem 1.5rem;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-fire {
+            background: linear-gradient(135deg, var(--accent-fire) 0%, #ec4899 100%);
+            color: white;
+        }
+
+        .btn-fire:hover {
+            background: linear-gradient(135deg, var(--accent-fire-hover) 0%, #db2777 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(244, 63, 94, 0.4);
+        }
+
+        .btn-fire:active {
+            transform: translateY(0);
+        }
+
+        .btn-fire:disabled {
+            background: #374151;
+            color: #6b7280;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-stop {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            display: none;
+        }
+
+        .btn-stop:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        /* Documentation Panel */
+        .doc-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 2rem;
+        }
+
+        .doc-card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1.25rem;
+            color: #60a5fa;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .doc-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .doc-item {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .doc-num {
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #93c5fd;
+            flex-shrink: 0;
+            margin-top: 0.15rem;
+        }
+
+        .doc-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .doc-text strong {
+            color: var(--text-primary);
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.15rem 0.4rem;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            color: #fb7185;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- Stress Test Control Dashboard -->
+        <div class="card">
+            <div class="header-block">
+                <div>
+                    <h1>AWS CloudWatch CPU 壓力測試</h1>
+                    <p class="subtitle">Feature 4 控制台：驗證 AWS 雲端監控與警示系統</p>
+                </div>
+                <a href="/" class="back-link">
+                    <span>← 返回首頁</span>
+                </a>
+            </div>
+
+            <!-- Notification Alerts -->
+            <div id="alert-box" class="alert-box">
+                <span id="alert-msg"></span>
+            </div>
+
+            <!-- Panel Contents -->
+            <div class="grid">
+                
+                <!-- Settings Panel -->
+                <div class="settings-panel">
+                    <div class="info-badge">
+                        <span>偵測到伺服器 CPU 邏輯核心數</span>
+                        <span class="info-value">{{ total_cores }} Cores</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="duration-select">
+                            <span>測試持續時間</span>
+                            <span class="label-val" id="duration-val">30 秒</span>
+                        </label>
+                        <select id="duration-select" onchange="updateDurationLabel()">
+                            <option value="10">10 秒 (快速測試)</option>
+                            <option value="30" selected>30 秒 (預設)</option>
+                            <option value="60">60 秒 (1 分鐘)</option>
+                            <option value="180">180 秒 (3 分鐘)</option>
+                            <option value="300">300 秒 (5 分鐘 - 推薦驗證)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="cores-range">
+                            <span>壓測核心數量 (Worker 進程數)</span>
+                            <span class="label-val" id="cores-val">1 / {{ total_cores }} Cores</span>
+                        </label>
+                        <input type="range" id="cores-range" min="1" max="{{ total_cores }}" value="1" oninput="updateCoresLabel()">
+                    </div>
+                </div>
+
+                <!-- Visualizer Panel -->
+                <div id="visualizer-container" class="visualizer-panel">
+                    <div class="gauge-outer">
+                        <div class="gauge-inner">
+                            <span id="gauge-text">IDLE</span>
+                            <span class="gauge-unit" id="gauge-unit">0% Load</span>
+                        </div>
+                    </div>
+                    <div class="status-text" id="status-text">系統閒置中，等待觸發...</div>
+                </div>
+
+            </div>
+
+            <!-- Buttons -->
+            <div class="btn-group-action">
+                <button class="btn btn-fire" id="btn-start" onclick="startStressTest()">
+                    <span>🔥 啟動 CPU 壓力測試</span>
+                </button>
+                <button class="btn btn-stop" id="btn-stop" onclick="stopStressTest()">
+                    <span>🛑 立即終止壓力測試</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Documentation/How-to Panel -->
+        <div class="doc-card">
+            <h2>📊 如何驗證 AWS CloudWatch 監控與警報？</h2>
+            <ul class="doc-list">
+                <li class="doc-item">
+                    <div class="doc-num">1</div>
+                    <div class="doc-text">
+                        <strong>啟動壓力測試</strong>：在上方選擇 <code>300 秒 (5 分鐘)</code> 的壓測時間，並將壓測核心設為 <code>{{ total_cores }} Cores</code>（全載），然後點擊啟動。
+                    </div>
+                </li>
+                <li class="doc-item">
+                    <div class="doc-num">2</div>
+                    <div class="doc-text">
+                        <strong>開啟 AWS 控制台</strong>：登入 AWS 並導覽至 <strong>CloudWatch</strong> 服務。點擊左側的「指標 (Metrics)」->「所有指標」，並搜尋並進入 <strong>EC2</strong> -> <strong>每個執行個體的指標</strong>。
+                    </div>
+                </li>
+                <li class="doc-item">
+                    <div class="doc-num">3</div>
+                    <div class="doc-text">
+                        <strong>監看 CPUUtilization</strong>：選取您部署此 Flask 容器的 EC2 執行個體，勾選其 <code>CPUUtilization</code> 指標。您可以將右上角的解析度調整為 <strong>1 分鐘</strong>，並將圖表時間設為「近 1 小時」。
+                    </div>
+                </li>
+                <li class="doc-item">
+                    <div class="doc-num">4</div>
+                    <div class="doc-text">
+                        <strong>觀察數據延遲與飆升</strong>：當壓力測試啟動後，EC2 的實際 CPU 會立刻拉滿。請注意，<strong>AWS 收集與繪製指標通常有 1 到 3 分鐘的物理延遲</strong>。請耐心等待幾分鐘，CloudWatch 指標圖表將會出現明顯的上升尖峰。
+                    </div>
+                </li>
+                <li class="doc-item">
+                    <div class="doc-num">5</div>
+                    <div class="doc-text">
+                        <strong>警報驗證 (CloudWatch Alarm)</strong>：您可以點選「警報 (Alarms)」->「建立警報」，設定「當 <code>CPUUtilization</code> 大於 <code>70%</code>，且持續 1 個週期（1 分鐘）」時發送 SNS 郵件通知。在此控制台觸發壓測後，即可驗證警報是否會成功切換至 <code>ALARM</code> 紅色警示狀態並收到通知信。
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        let statusInterval = null;
+
+        function updateDurationLabel() {
+            const select = document.getElementById('duration-select');
+            const val = document.getElementById('duration-val');
+            val.innerText = select.options[select.selectedIndex].text;
+        }
+
+        function updateCoresLabel() {
+            const range = document.getElementById('cores-range');
+            const val = document.getElementById('cores-val');
+            val.innerText = `${range.value} / ${range.max} Cores`;
+        }
+
+        // Initialize labels on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updateDurationLabel();
+            updateCoresLabel();
+            // Start checking status immediately in case it's already running
+            checkStatus();
+            statusInterval = setInterval(checkStatus, 2000);
+        });
+
+        function showAlert(msg, isSuccess = true) {
+            const alertBox = document.getElementById('alert-box');
+            const alertMsg = document.getElementById('alert-msg');
+            
+            alertBox.className = `alert-box ${isSuccess ? 'alert-success' : 'alert-error'}`;
+            alertMsg.innerText = msg;
+            alertBox.style.display = 'flex';
+            
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 6000);
+        }
+
+        function checkStatus() {
+            fetch('/feature4/status')
+                .then(res => res.json())
+                .then(data => {
+                    updateUI(data);
+                })
+                .catch(err => {
+                    console.error('Error fetching status:', err);
+                });
+        }
+
+        function updateUI(data) {
+            const container = document.getElementById('visualizer-container');
+            const gaugeText = document.getElementById('gauge-text');
+            const gaugeUnit = document.getElementById('gauge-unit');
+            const statusText = document.getElementById('status-text');
+            const btnStart = document.getElementById('btn-start');
+            const btnStop = document.getElementById('btn-stop');
+
+            if (data.active) {
+                // Stressing active UI
+                container.classList.add('stressing');
+                gaugeText.innerText = `${data.remaining_seconds}s`;
+                gaugeUnit.innerText = `剩餘時間`;
+                
+                const percentage = Math.round((data.cores_stressed / data.total_system_cores) * 100);
+                statusText.innerHTML = `🔥 CPU 壓力測試進行中...<br><small style="color:#f87171; font-weight: 300;">正使用 ${data.cores_stressed} 核心進行高速運算 (影響約 ${percentage}% 總效能)</small>`;
+                
+                btnStart.disabled = true;
+                btnStart.querySelector('span').innerText = '⏳ 壓力測試執行中...';
+                btnStop.style.display = 'flex';
+            } else {
+                // Idle UI
+                container.classList.remove('stressing');
+                gaugeText.innerText = 'IDLE';
+                gaugeUnit.innerText = '0% Load';
+                statusText.innerText = '系統閒置中，等待觸發...';
+                
+                btnStart.disabled = false;
+                btnStart.querySelector('span').innerText = '🔥 啟動 CPU 壓力測試';
+                btnStop.style.display = 'none';
+            }
+        }
+
+        function startStressTest() {
+            const duration = parseInt(document.getElementById('duration-select').value);
+            const cores = parseInt(document.getElementById('cores-range').value);
+            
+            fetch('/feature4/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ duration: duration, cores: cores })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showAlert('🔥 壓力測試指令已成功發送，開始加載 CPU！', true);
+                    checkStatus();
+                } else {
+                    showAlert('❌ 啟動失敗：' + data.message, false);
+                }
+            })
+            .catch(err => {
+                showAlert('❌ 連線錯誤，請確認伺服器狀態。', false);
+            });
+        }
+
+        function stopStressTest() {
+            fetch('/feature4/stop', {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showAlert('🛑 壓力測試已手動終止，系統正在釋放資源。', true);
+                    checkStatus();
+                } else {
+                    showAlert('❌ 停止失敗：' + data.message, false);
+                }
+            })
+            .catch(err => {
+                showAlert('❌ 連線錯誤，請確認伺服器狀態。', false);
+            });
+        }
+    </script>
+</body>
+</html>

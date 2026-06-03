@@ -1,10 +1,79 @@
 import os
 import io
 import boto3
+import multiprocessing
+import time
 from datetime import datetime
 from botocore.exceptions import NoCredentialsError, ClientError
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, jsonify
 from werkzeug.utils import secure_filename
+
+def cpu_stress_worker(duration):
+    """Busy loop to spike CPU core usage."""
+    start_time = time.time()
+    # Keep calculating math operations to load CPU
+    while time.time() - start_time < duration:
+        _ = 12345.67 * 89012.34
+
+class CPUStresser:
+    def __init__(self):
+        self.processes = []
+        self.end_time = 0
+        self.active = False
+        self.duration = 0
+        self.cores_stressed = 0
+
+    def start(self, duration, num_cores):
+        self.stop() # Ensure previous processes are cleaned up
+        
+        self.active = True
+        self.duration = duration
+        self.end_time = time.time() + duration
+        self.cores_stressed = num_cores
+        
+        self.processes = []
+        for _ in range(num_cores):
+            p = multiprocessing.Process(target=cpu_stress_worker, args=(duration,))
+            p.daemon = True
+            p.start()
+            self.processes.append(p)
+
+    def stop(self):
+        if self.processes:
+            for p in self.processes:
+                if p.is_alive():
+                    p.terminate()
+            for p in self.processes:
+                p.join(timeout=0.1)
+            self.processes = []
+        self.active = False
+        self.end_time = 0
+        self.cores_stressed = 0
+
+    def get_status(self):
+        if self.active:
+            if all(not p.is_alive() for p in self.processes):
+                self.active = False
+                self.processes = []
+                self.cores_stressed = 0
+                
+        remaining = max(0, int(self.end_time - time.time())) if self.active else 0
+        
+        try:
+            total_cores = multiprocessing.cpu_count()
+        except NotImplementedError:
+            total_cores = 2
+            
+        return {
+            "active": self.active,
+            "remaining_seconds": remaining,
+            "duration": self.duration,
+            "cores_stressed": self.cores_stressed,
+            "total_system_cores": total_cores
+        }
+
+cpu_stresser = CPUStresser()
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-key-for-ckc-26")
@@ -182,6 +251,53 @@ def feature3_delete(filename):
         flash(f"找不到檔案 {filename}，刪除失敗。", "error")
         
     return redirect(url_for('feature3'))
+
+@app.route("/feature4")
+def feature4():
+    """Feature 4: CPU Stress Test Page."""
+    try:
+        total_cores = multiprocessing.cpu_count()
+    except NotImplementedError:
+        total_cores = 2
+    return render_template("feature4.html", total_cores=total_cores)
+
+@app.route("/feature4/start", methods=["POST"])
+def feature4_start():
+    """Start the CPU stress test."""
+    try:
+        data = request.get_json() or {}
+        duration = int(data.get("duration", 30))
+        cores = int(data.get("cores", 1))
+        
+        if duration < 1 or duration > 300:
+            return jsonify({"status": "error", "message": "Duration must be between 1 and 300 seconds."}), 400
+            
+        try:
+            total_cores = multiprocessing.cpu_count()
+        except NotImplementedError:
+            total_cores = 2
+            
+        if cores < 1 or cores > total_cores:
+            return jsonify({"status": "error", "message": f"Cores must be between 1 and {total_cores}."}), 400
+            
+        cpu_stresser.start(duration, cores)
+        return jsonify({"status": "success", "message": "Stress test started."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/feature4/stop", methods=["POST"])
+def feature4_stop():
+    """Stop the CPU stress test."""
+    try:
+        cpu_stresser.stop()
+        return jsonify({"status": "success", "message": "Stress test stopped."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/feature4/status", methods=["GET"])
+def feature4_status():
+    """Get the current CPU stress test status."""
+    return jsonify(cpu_stresser.get_status())
 
 if __name__ == "__main__":
     # Start the Flask web application on port 19191
